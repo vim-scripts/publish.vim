@@ -37,10 +37,26 @@ wondering what the result looks like, I've published <a href="http://peterodding
 
 <p>Unzip the most recent <a href="http://github.com/downloads/xolox/vim-publish/publish-latest.zip">ZIP archive</a> file inside your Vim profile
 directory (usually this is <code>~/.vim</code> on UNIX and <code>%USERPROFILE%\vimfiles</code> on
-Windows), restart Vim and try it out. Create a Vim script that calls the
-function <code>Publish()</code> as follows:</p>
+Windows). As an example we'll publish the plug-in using itself. First create a
+tags file that contains entries for the files you want to publish using a shell
+command such as:</p>
 
-<pre><code>let sources = '/home/peter/.vim'
+<pre><code>ctags -Rf ~/.publish_tags ~/.vim/
+</code></pre>
+
+<p>If this doesn't work because <code>ctags</code> isn't installed you can download it from
+the <a href="http://ctags.sourceforge.net/">Exuberant Ctags homepage</a>, or if you're running Debian/Ubuntu you
+can install it by executing the following shell command:</p>
+
+<pre><code>sudo apt-get install exuberant-ctags
+</code></pre>
+
+<p>The plug-in needs an up-to-date tags file so that it create hyperlinks between
+the published files. Now start Vim and write a script that registers the tags
+file you just created and calls the function <code>Publish()</code> as follows:</p>
+
+<pre><code>set tags=~/.publish_tags
+let sources = '/home/peter/.vim'
 let target = 'sftp://peterodding.com/code/vim/profile'
 call Publish(sources, target, [
     \ 'autoload/xolox/escape.vim',
@@ -50,22 +66,22 @@ call Publish(sources, target, [
     \ ])
 </code></pre>
 
-<p>Change the <code>sources</code> and <code>target</code> variables to reflect your situation, save
-your script as <code>~/publish_test.vim</code> and you can execute the script in Vim by
-typing <code>:source ~/publish_test.vim</code> and pressing <code>Enter↵</code>. If everything goes
-well Vim will be busy for a moment and after that you will find a bunch of
-syntax highlighted, interlinked HTML documents in the <code>target</code> directory!</p>
+<p>Change the <code>sources</code> and <code>target</code> variables to reflect your situation, save the
+script as <code>~/publish_test.vim</code> and execute it in Vim by typing <code>:source
+~/publish_test.vim</code> and pressing <code>Enter↵</code>. If everything goes well Vim will be
+busy for a moment and after that you will find a bunch of syntax highlighted,
+interlinked HTML documents in the <code>target</code> directory!</p>
 
 <h2>Contact</h2>
 
 <p>If you have questions, bug reports, suggestions, etc. the author can be
-contacted at <a href="&#x6D;a&#x69;&#x6C;&#x74;&#111;:&#x70;e&#116;&#x65;&#114;&#64;&#x70;et&#x65;&#x72;&#x6F;&#100;&#100;&#105;&#x6E;&#103;&#x2E;&#99;&#x6F;&#x6D;">&#x70;e&#116;&#x65;&#114;&#64;&#x70;et&#x65;&#x72;&#x6F;&#100;&#100;&#105;&#x6E;&#103;&#x2E;&#99;&#x6F;&#x6D;</a>. The latest version is available
+contacted at <a href="&#x6D;&#x61;&#105;&#108;&#x74;&#x6F;:&#112;&#x65;&#116;&#x65;&#x72;&#64;&#x70;e&#x74;&#101;&#114;&#111;&#100;&#x64;&#105;&#110;&#103;&#x2E;&#x63;&#111;&#x6D;">&#112;&#x65;&#116;&#x65;&#x72;&#64;&#x70;e&#x74;&#101;&#114;&#111;&#100;&#x64;&#105;&#110;&#103;&#x2E;&#x63;&#111;&#x6D;</a>. The latest version is available
 at <a href="http://peterodding.com/code/vim/publish">http://peterodding.com/code/vim/publish</a> and <a href="http://github.com/xolox/vim-publish">http://github.com/xolox/vim-publish</a>.
 If you like the script please vote for it on <a href="http://www.vim.org/scripts/script.php?script_id=2252">www.vim.org</a>.</p>
 
 <h2>License</h2>
 
 <p>This software is licensed under the <a href="http://en.wikipedia.org/wiki/MIT_License">MIT license</a>.<br>
-© 2010 Peter Odding &lt;<a href="&#x6D;&#97;&#105;&#108;&#116;&#111;:&#x70;&#101;&#116;e&#114;&#64;&#x70;&#101;&#x74;&#x65;&#x72;&#111;d&#x64;i&#x6E;&#103;&#46;&#x63;&#111;&#109;">&#x70;&#101;&#116;e&#114;&#64;&#x70;&#101;&#x74;&#x65;&#x72;&#111;d&#x64;i&#x6E;&#103;&#46;&#x63;&#111;&#109;</a>&gt;.</p>
+© 2010 Peter Odding &lt;<a href="&#x6D;&#97;&#105;&#108;&#116;&#111;:&#x70;&#x65;&#116;&#101;&#114;&#64;&#112;&#x65;&#x74;&#101;&#x72;&#x6F;d&#x64;i&#110;&#x67;&#x2E;&#x63;&#x6F;&#109;">&#x70;&#x65;&#116;&#101;&#114;&#64;&#112;&#x65;&#x74;&#101;&#x72;&#x6F;d&#x64;i&#110;&#x67;&#x2E;&#x63;&#x6F;&#109;</a>&gt;.</p>
  </body>
 </html>
