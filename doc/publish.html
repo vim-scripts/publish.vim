@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+"http://www.w3.org/TR/html4/strict.dtd">
+<html>
+ <head>
+  <title>publish.vim - Publish hyperlinked, syntax highlighted source code with Vim</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <style type="text/css">
+   body { font-family: sans-serif; padding: 1em 30% 4em 1em; }
+   a:link, a:visited { color: #000080; }
+   a:hover, a:active { color: #8B0000; }
+   pre, code, tt { font-family: Monaco, Consolas, monospace; }
+   pre { margin-left: 2em; }
+   code { background: #F6F6F6; padding: .1em .3em; }
+   p { text-align: justify; line-height: 1.75em; }
+   h1 { padding: 0 30% 0 0; }
+   h2, h3 { border-bottom: 2px solid #F6F6F6; margin: 2em 0 -0.5em 0; padding-left: 0.5em; }
+   hr { height: 0; border: none; border: 1px solid #F6F6F6; }
+  </style>
+ </head>
+ <body>
+<h1>Publish hyperlinked, syntax highlighted source code with Vim</h1>
+
+<p>The <a href="http://www.vim.org/">Vim text editor</a> includes the script <a href="http://ftp.vim.org/vim/runtime/syntax/2html.vim">2html.vim</a> which can
+be used to convert a syntax highlighted buffer in Vim to an HTML document that,
+when viewed in a web browser, should look exactly the same. After using that
+script for a while and discovering the excellent <a href="http://ctags.sourceforge.net/">Exuberant Ctags</a> I
+wondered <em>"Wouldn't it be nice to have those tags converted to hyperlinks when
+I publish source code as HTML?"</em>.</p>
+
+<p>After several attempts I managed a working prototype, but it was quite rough
+around the edges and I didn't really have the time or interest to clean it up.
+Several months later I found myself with some free time and a renewed interest
+in Vim scripting so I decided to clean up my code and release it. If you're
+wondering what the result looks like, I've published <a href="http://peterodding.com/code/vim/profile/plugin/publish.vim">the plug-in source code</a> as a demonstration.</p>
+
+<h2>Installation &amp; usage</h2>
+
+<p>Unzip the most recent <a href="http://github.com/downloads/xolox/vim-publish/publish-latest.zip">ZIP archive</a> file inside your Vim profile
+directory (usually this is <code>~/.vim</code> on UNIX and <code>%USERPROFILE%\vimfiles</code> on
+Windows), restart Vim and try it out. Create a Vim script that calls the
+function <code>Publish()</code> as follows:</p>
+
+<pre><code>let sources = '/home/peter/.vim'
+let target = 'sftp://peterodding.com/code/vim/profile'
+call Publish(sources, target, [
+    \ 'autoload/xolox/escape.vim',
+    \ 'autoload/xolox/path.vim',
+    \ 'autoload/publish.vim',
+    \ 'plugin/publish.vim',
+    \ ])
+</code></pre>
+
+<p>Change the <code>sources</code> and <code>target</code> variables to reflect your situation, save
+your script as <code>~/publish_test.vim</code> and you can execute the script in Vim by
+typing <code>:source ~/publish_test.vim</code> and pressing <code>Enter↵</code>. If everything goes
+well Vim will be busy for a moment and after that you will find a bunch of
+syntax highlighted, interlinked HTML documents in the <code>target</code> directory!</p>
+
+<h2>Contact</h2>
+
+<p>If you have questions, bug reports, suggestions, etc. the author can be
+contacted at <a href="&#x6D;a&#x69;&#x6C;&#x74;&#111;:&#x70;e&#116;&#x65;&#114;&#64;&#x70;et&#x65;&#x72;&#x6F;&#100;&#100;&#105;&#x6E;&#103;&#x2E;&#99;&#x6F;&#x6D;">&#x70;e&#116;&#x65;&#114;&#64;&#x70;et&#x65;&#x72;&#x6F;&#100;&#100;&#105;&#x6E;&#103;&#x2E;&#99;&#x6F;&#x6D;</a>. The latest version is available
+at <a href="http://peterodding.com/code/vim/publish">http://peterodding.com/code/vim/publish</a> and <a href="http://github.com/xolox/vim-publish">http://github.com/xolox/vim-publish</a>.
+If you like the script please vote for it on <a href="http://www.vim.org/scripts/script.php?script_id=2252">www.vim.org</a>.</p>
+
+<h2>License</h2>
+
+<p>This software is licensed under the <a href="http://en.wikipedia.org/wiki/MIT_License">MIT license</a>.<br>
+© 2010 Peter Odding &lt;<a href="&#x6D;&#97;&#105;&#108;&#116;&#111;:&#x70;&#101;&#116;e&#114;&#64;&#x70;&#101;&#x74;&#x65;&#x72;&#111;d&#x64;i&#x6E;&#103;&#46;&#x63;&#111;&#109;">&#x70;&#101;&#116;e&#114;&#64;&#x70;&#101;&#x74;&#x65;&#x72;&#111;d&#x64;i&#x6E;&#103;&#46;&#x63;&#111;&#109;</a>&gt;.</p>
+ </body>
+</html>

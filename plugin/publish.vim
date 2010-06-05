@@ -1,154 +1,99 @@
-" Vim plugin
-" Maintainer: Peter Odding <xolox@home.nl>
-" Last Change: 2008/05/26
-" URL: http://xolox.ath.cx/vim/plugin/publish.vim
-" See Also: http://xolox.ath.cx/vim/plugin/openurl.vim
+" Vim plug-in
+" Maintainer: Peter Odding <peter@peterodding.com>
+" Last Change: June 5, 2010
+" URL: http://peterodding.com/code/vim/publish
+" License: MIT
+" Version: 1.5
 
-" Documentation {{{1
+" Support for automatic update using the GLVS plug-in.
+" GetLatestVimScripts: 2252 1 :AutoInstall: publish.zip
 
-" Introduction: Vim has been my favorite and only editor for several years now.
-" I've customized and written several syntax highlighting modes and everything
-" is set up the way I like it. When I stumbled unto the :TOhtml command I
-" realized Vim could be used to publish source-code on my website. This plugin
-" makes it as easy as :update.
-
-" Usage: When you've defined the global variables 'publish_pattern' and
-" 'publish_directory' this plugin will automatically publish your buffers when
-" you save them. The value of 'publish_pattern' is used as a pattern to search
-" for within the first ten lines of the buffer. If it matches a line, the
-" capture of the first subpattern will be appended to the filepath defined by
-" 'publish_directory' to get the filepath to which the buffer should be
-" published. When the directory 'publish_directory' does not exist you'll be
-" promted whether you want to temporarily disable automatic publishing. You can
-" do this manually as well by defining 'publish_automatic' to 0. Several
-" globals can be used to change the way your buffers are published, they are
-" the keys documented for the Publish() function prefixed with 'publish_'.
-
-" Example: Take a look at the fourth line of this script. It starts with 'URL:'
-" and contains the address where you probably found this script. When I save
-" this script it's published to '/mnt/website/vim/plugin/publish.vim'. The
-" directory '/mnt/website/' is a mount point for the root of my website
-" http://xolox.ath.cx/. I have the following options in my vimrc:
-
-"   let publish_pattern = 'URL:\s\+http://xolox.ath.cx/\(\S\+\)'
-"   let publish_directory = '/mnt/website'
-
-" Scripting: If you don't like the autocommand but want to publish Vim buffers
-" from your own scripts you can use the function Publish(path [, options]).
-" Several key/value pairs are supported in the 'options' dictionary:
-
-" colors:  Colorscheme to use for publishing the buffer;
-" title:   Unencoded content of the <title> element;
-" header:  HTML to insert just before the end of <head>;
-" linkify: Replace e-mail addresses with obfuscated hyper links.
-
-" Note that this plugin overwrites existing files.
-
-" }}}
-
-if !exists('publish_automatic')
- let publish_automatic = 1
+" Don't source the plug-in when its already been loaded or &compatible is set.
+if &cp || exists('g:loaded_publish')
+  finish
 endif
 
-augroup PluginPublish
- autocmd! BufWritePost * call s:AutoPublish()
-augroup END
+if !exists('g:publish_omit_dothtml')
+  let g:publish_omit_dothtml = 0
+endif
 
-fun! s:AutoPublish() " {{{1
- if g:publish_automatic
-  if exists('g:publish_pattern') && exists('g:publish_directory')
-   let view = winsaveview()
-   try
-    call cursor(1, 1)
-    let linenr = search(g:publish_pattern, 'c', 10)
-    if !linenr | return | endif
-    let path = get(matchlist(getline(linenr), g:publish_pattern), 1)
-    if empty(path)
-     let prompt = "The regex 'publish_pattern' didn't capture a path!"
-     throw printf(prompt, g:publish_pattern)
-    endif
-    if !isdirectory(g:publish_directory)
-     let prompt = "The publish directory doesn't exist! (%s)"
-     throw printf(prompt, g:publish_directory)
-    endif
-    let options = { 'title': path }
-    for key in ['colors', 'header', 'linkify']
-     let global = 'g:publish_' . key
-     if exists(global)
-      let options[key] = eval(global)
-     endif
-    endfor
-    let path = g:publish_directory . '/' . path
-    echomsg 'Publishing to' fnamemodify(path, ':~:.')
-    silent call Publish(path, options)
-   catch
-    let prompt = "An error occurred while publishing your buffer:"
-    let prompt .= "\n\n " . v:exception . "\n at " . v:throwpoint
-    let prompt .= "\n\nDisable automatic publishing for this session?"
-    let g:publish_automatic = confirm(prompt, "&Yes\n&No") == 2
-   finally
-    call winrestview(view)
-   endtry
-  endif
- endif
-endfun
+if !exists('g:publish_plaintext')
+  let g:publish_plaintext = 0
+endif
 
-fun! Publish(path, ...) " {{{1
- let options = a:0 && type(a:1) == type({}) ? a:1 : {}
- let restore = []
- try
-  let directory = fnamemodify(a:path, ':h')
-  if !isdirectory(directory) | call mkdir(directory, 'p') | endif
-  if has_key(options, 'colors') && type(options.colors) == type('')
-   if !exists('g:colors_name') || g:colors_name != options.colors
-    if exists('g:colors_name')
-     call add(restore, 'colorscheme ' . escape(g:colors_name, ' '))
-     call add(restore, 'doautocmd ColorScheme')
+function! Publish(source, target, files) abort
+  call s:Message("Preparing to publish file%s ..", len(a:files) == 1 ? '' : 's')
+  let s:files_to_publish = publish#resolve_files(a:source, a:files)
+  let s:tags_to_publish = publish#find_tags(s:files_to_publish)
+  if s:tags_to_publish != {}
+    let tags_to_links_command = publish#create_subst_cmd(s:tags_to_publish)
+  endif
+  call publish#prep_env(1)
+  for pathname in a:files
+    let source_path = xolox#path#merge(a:source, pathname)
+    let suffix = g:publish_omit_dothtml ? '' : '.html'
+    let target_path = xolox#path#merge(a:target, pathname . suffix)
+    call s:Message("Publishing %s", string(pathname))
+    if !publish#create_dirs(target_path)
+      return
     endif
-    execute 'colorscheme' escape(options.colors, ' ')
-    doautocmd ColorScheme
-   endif
-  endif
-  if &modeline
-   call add(restore, 'setglobal modeline')
-   setglobal nomodeline
-  endif
-  runtime syntax/2html.vim
-  call add(restore, 'bwipeout! ' . bufnr('%'))
-  if has_key(options, 'title') && type(options.title) == type('')
-   %s!<title>\zs.*\ze</title>!\=s:EscapeHTML(options.title)!e
-  endif
-  if has_key(options, 'header') && type(options.header) == type('')
-   %s!\ze</head>!\=options.header!e
-  endif
-  if get(options, 'linkify', 1)
-   %s/\v\l+(\.\l+)*\@\l+(\.\l+)+/\=s:ObfuscateEmail(submatch(0))/eg
-  endif
-  execute 'write!' escape(a:path, ' ')
-  return 1
- finally
-  for cmd in restore
-   execute cmd
+    " Save the pathname of the directory containing the source file in a
+    " script-local variable so that s:ConvertTagToLink() has access to it.
+    let given_source = s:FindOriginalPath(source_path)
+    let s:current_source_directory = fnamemodify(given_source, ':h')
+    silent execute 'edit!' fnameescape(source_path)
+    execute 'doautocmd bufreadpost' fnameescape(source_path)
+    if g:publish_plaintext
+      let plaintext_path = xolox#path#merge(a:target, pathname . '.txt')
+      silent execute 'write!' fnameescape(plaintext_path)
+    endif
+    runtime syntax/2html.vim
+    if exists('tags_to_links_command')
+      silent execute tags_to_links_command
+    endif
+    call publish#customize_html(pathname)
+    silent execute 'write!' fnameescape(target_path)
+    bwipeout!
   endfor
- endtry
-endfun
+  call publish#prep_env(0)
+  unlet s:files_to_publish s:tags_to_publish
+  let [msg, nfiles] = ["publish.vim: Published %i file%s to %s.", len(a:files)]
+  call s:Message(msg, nfiles, nfiles == 1 ? '' : 's', string(a:target))
+endfunction
 
-fun! s:ObfuscateEmail(email) " {{{1
- let label = s:ObfuscateHTML(a:email)
- let value = s:ObfuscateHTML('mailto:' . s:ObfuscateURL(a:email))
- return printf('<a href="%s">%s</a>', value, label)
-endfun
+function! s:FindOriginalPath(pathname) " {{{1
+  let key = xolox#path#absolute(a:pathname)
+  return get(s:files_to_publish, key, '')
+endfunction
 
-fun! s:ObfuscateURL(s) " {{{1
- return join(map(split(a:s, '.\zs'), "printf('%%%x', char2nr(v:val))"), '')
-endfun
+function! s:Message(...) " {{{1
+  try
+    redraw
+    echohl title
+    echomsg call('printf', a:000)
+  finally
+    echohl none
+  endtry
+endfunction
 
-fun! s:ObfuscateHTML(s) " {{{1
- return join(map(split(a:s, '.\zs'), "printf('&#%2i;', char2nr(v:val))"), '')
-endfun
+function! s:ConvertTagToLink(name) " {{{1
+  " Convert each occurrence of every tag into a hyperlink that points to the
+  " location where the tag is defined. Since the hyperlinks are relative they
+  " work on the local file system just as well as on a web server.
+  try
+    " Strip HTML from matched text and use result to find tag info.
+    let entry = s:tags_to_publish[substitute(a:name, '<[^>]\+>', '', 'g')]
+    " Convert the fully resolved pathname back into the one given by the user.
+    let pathname = s:FindOriginalPath(entry.filename)
+    " Now convert that pathname into a relative hyperlink with an anchor.
+    let relative = xolox#path#relative(pathname, s:current_source_directory)
+    let suffix = g:publish_omit_dothtml ? '' : '.html'
+    return '<a href="' . relative . suffix . '#l' . entry.cmd . '">' . a:name . '</a>'
+  catch
+    return a:name
+  endtry
+endfunction
 
-fun! s:EscapeHTML(s) " {{{1
- return substitute(a:s, '[<>&]', '\=printf("&#%2i;", char2nr(submatch(0)))', 'g')
-endfun " }}}
+let g:loaded_publish = 1
 
-" vim: sw=1 tw=90
+" vim: ts=2 sw=2 et
