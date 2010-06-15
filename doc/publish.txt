@@ -52,28 +52,52 @@ be busy for a moment and after that you will find a bunch of syntax
 highlighted, interlinked HTML documents in the 'target' directory!
 
 ==============================================================================
+Publishing to a remote location (website)
+
+As you can see from the example above it's possible to publish files directly
+to your web server using the netrw.vim plug-in [6] that's bundled with Vim,
+simply by starting the 'target' path with 'sftp://'. All you need for this to
+work is the ability to establish SCP [7] connections to your server. There are
+however two disadvantages to remote publishing over SFTP [8]:
+
+1. The 'publish.vim' plug-in can't automatically create directories on the
+remote side, which means you'll have to do so by hand -- very bothersome.
+
+2. It can take a while to publish a dozen files because a new connection is
+established for every file that's uploaded to the remote location.
+
+As a workaround to both of these issues the 'publish.vim' plug-in will
+automatically use rsync [9] when both the local and remote system have it
+installed. This cuts the time to publish to a remote location in half and
+enables the plug-in to automatically create directories on the remote side.
+
+==============================================================================
 Contact
 
 If you have questions, bug reports, suggestions, etc. the author can be
 contacted at peter@peterodding.com. The latest version is available at
 http://peterodding.com/code/vim/publish and http://github.com/xolox/vim-publish.
-If you like the script please vote for it on www.vim.org [6].
+If you like the script please vote for it on www.vim.org [10].
 
 ==============================================================================
 License
 
-This software is licensed under the MIT license [7].  
+This software is licensed under the MIT license [11].
 © 2010 Peter Odding <peter@peterodding.com>.
 
-============================================================================== 
+==============================================================================
 References
 
 [1] http://www.vim.org/
 [2] http://ftp.vim.org/vim/runtime/syntax/2html.vim
 [3] http://ctags.sourceforge.net/
 [4] http://peterodding.com/code/vim/profile/plugin/publish.vim
-[5] http://github.com/downloads/xolox/vim-publish/publish-latest.zip
-[6] http://www.vim.org/scripts/script.php?script_id=2252
-[7] http://en.wikipedia.org/wiki/MIT_License
+[5] http://peterodding.com/code/vim/download.php?script=publish
+[6] http://www.vim.org/scripts/script.php?script_id=1075
+[7] http://en.wikipedia.org/wiki/Secure_copy
+[8] http://en.wikipedia.org/wiki/SSH_file_transfer_protocol
+[9] http://en.wikipedia.org/wiki/rsync
+[10] http://www.vim.org/scripts/script.php?script_id=2252
+[11] http://en.wikipedia.org/wiki/MIT_License
 
 vim: syntax=help nospell

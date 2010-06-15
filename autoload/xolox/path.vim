@@ -1,6 +1,6 @@
 " Vim script
 " Maintainer: Peter Odding <peter@peterodding.com>
-" Last Change: June 5, 2010
+" Last Change: June 15, 2010
 " URL: http://peterodding.com/code/vim/profile/autoload/xolox/path.vim
 
 let s:windows_compatible = has('win32') || has('win64')
@@ -126,5 +126,33 @@ else
     return a:a ==# a:b || xolox#path#absolute(a:a) ==# xolox#path#absolute(a:b)
   endfunction
 endif
+
+" tempdir() -- create a temporary directory and return the path {{{1
+
+function! xolox#path#tempdir()
+  if !exists('s:tempdir_counter')
+    let s:tempdir_counter = 1
+  endif
+  if exists('*mkdir')
+    if s:windows_compatible
+      let template = $TMP . '\vim_tempdir_'
+    elseif filewritable('/tmp') == 2
+      let template = '/tmp/vim_tempdir_'
+    endif
+  endif
+  if !exists('template')
+    throw "xolox#path#tempdir() hasn't been implemented on your platform!"
+  endif
+  while 1
+    let directory = template . s:tempdir_counter
+    try
+      call mkdir(directory, '', 0700)
+      return directory
+    catch /\<E739\>/
+      " Keep looking for a non-existing directory.
+    endtry
+    let s:tempdir_counter += 1
+  endwhile
+endfunction
 
 " vim: ts=2 sw=2 et

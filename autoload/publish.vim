@@ -1,9 +1,9 @@
 " Vim script
 " Maintainer: Peter Odding <peter@peterodding.com>
-" Last Change: June 5, 2010
+" Last Change: June 15, 2010
 " URL: http://peterodding.com/code/vim/publish
 
-function! publish#resolve_files(directory, pathnames)
+function! publish#resolve_files(directory, pathnames) " {{{1
   " Create a dictionary that maps the fully resolved pathnames of the files to
   " be published to the absolute pathnames provided by the user. This enables
   " the script to gracefully handle symbolic links which I use a lot :-)
@@ -25,22 +25,21 @@ function! publish#find_tags(files_to_publish) " {{{1
   let s:cached_contents = {}
   for entry in taglist('.')
     let pathname = xolox#path#absolute(entry.filename)
-    if has_key(a:files_to_publish, pathname)
-      call s:pattern_to_lnum(entry, pathname)
-      if entry.cmd =~ '^\d\+$'
-        if !has_key(tags_to_publish, entry.name)
+    if has_key(a:files_to_publish, pathname) && s:pattern_to_lnum(entry, pathname)
+      if !has_key(tags_to_publish, entry.name)
+        let tags_to_publish[entry.name] = entry
+      else
+        let num_duplicates += 1
+        let other = tags_to_publish[entry.name]
+        if entry.filename == other.filename && entry.lnum < other.lnum
           let tags_to_publish[entry.name] = entry
-        else
-          let num_duplicates += 1
-          if num_duplicates <= 3
-            let tag_name = string(entry.name)
-            let this_path = string(entry.filename)
-            let other_path = string(tags_to_publish[entry.name].filename)
-            let msg = "publish.vim: Ignoring duplicate tag %s! (duplicate is in %s, first was in %s)"
-            echohl warningmsg
-            echomsg printf(msg, tag_name, this_path, other_path)
-            echohl none
-          endif
+        endif
+        if num_duplicates <= 3
+          let tag_name = string(entry.name)
+          let this_path = string(entry.filename)
+          let other_path = string(other.filename)
+          let msg = "publish.vim: Ignoring duplicate tag %s! (duplicate is in %s, first was in %s)"
+          call xolox#warning(msg, tag_name, this_path, other_path)
         endif
       endif
     endif
@@ -48,9 +47,7 @@ function! publish#find_tags(files_to_publish) " {{{1
   if num_duplicates > 3
     let more = num_duplicates - 3
     let msg = "publish.vim: Ignored %s more duplicate tag%s!"
-    echohl warningmsg
-    echomsg printf(msg, more, more == 1 ? '' : 's')
-    echohl none
+    call xolox#warning(msg, more, more == 1 ? '' : 's')
   endif
   unlet s:cached_contents
   return tags_to_publish
@@ -61,7 +58,10 @@ function! s:pattern_to_lnum(entry, pathname) " {{{2
   " search patterns. Since search patterns are more flexible I use those, but
   " the plug-in needs absolute line numbers, so this function converts search
   " patterns into line numbers.
-  if a:entry.cmd !~ '^\d\+$'
+  if a:entry.cmd =~ '^\d\+$'
+    let a:entry.lnum = a:entry.cmd + 0
+    return 1
+  else
     if !has_key(s:cached_contents, a:pathname)
       let contents = readfile(a:pathname)
       let s:cached_contents[a:pathname] = contents
@@ -69,10 +69,15 @@ function! s:pattern_to_lnum(entry, pathname) " {{{2
      let contents = s:cached_contents[a:pathname]
     endif
     let pattern = substitute(a:entry.cmd, '^/\(.*\)/$', '\1', '')
-    let index = match(contents, pattern)
+    let pattern = substitute(pattern, '\~', '\\~', 'g')
+    try
+      let index = match(contents, pattern)
+    catch
+      throw "Failed pattern: " . string(pattern)
+    endtry
     if index >= 0
-      let lnum = index + 1
-      let a:entry.cmd = string(lnum)
+      let a:entry.lnum = index + 1
+      return 1
     endif
   endif
 endfunction
@@ -86,19 +91,64 @@ function! publish#create_subst_cmd(tags_to_publish) " {{{1
   "   foo#bar#<span class=Normal>baz</span>
   " 
   let patterns = []
-  let ignore_html = '\%%(<[^/][^>]*>%s</[^>]\+>\|%s\)'
   for name in keys(a:tags_to_publish)
     let tokens = []
     for token in split(name, '\W\@=\|\W\@<=')
       let escaped = xolox#escape#pattern(token)
-      call add(tokens, printf(ignore_html, token, token))
+      call add(tokens, s:ignore_html(token))
     endfor
+    let entry = a:tags_to_publish[name]
+    if g:publish_viml_sl_hack && get(entry, 'language') == 'Vim'
+      let subpattern = '\s\(s:\|<[Ss][Ii][Dd]>\)' . name . '\s*('
+      if get(entry, 'cmd') =~ subpattern
+        if !exists('s:viml_sl_prefix')
+          let s:viml_sl_prefix = s:nasty()
+        endif
+        call insert(tokens, s:viml_sl_prefix)
+      endif
+    endif
     call add(patterns, join(tokens, ''))
   endfor
   let tag_names_pattern = escape(join(patterns, '\|'), '/')
   " Gotcha: Use \w\@<! and \w\@! here instead of \< and \> which won't work.
   return '%s/[A-Za-z0-9_]\@<!\%(' . tag_names_pattern . '\)[A-Za-z0-9_]\@!/\=s:ConvertTagToLink(submatch(0))/eg'
-  return '%s/\w\@<!\%(' . tag_names_pattern . '\)\w\@!/\=s:ConvertTagToLink(submatch(0))/eg'
+endfunction
+
+function! s:ignore_html(s)
+  return printf('\%%(<[^/][^>]*>%s</[^>]\+>\|%s\)', a:s, a:s)
+endfunction
+
+function! s:nasty()
+  " return '\%(s:\|&lt;[Ss][Ii][Dd]&gt;\)'
+  let short = s:ignore_html('s') . s:ignore_html(':')
+  let long = s:ignore_html('&lt;') . s:ignore_html('[Ss][Ii][Dd]') . s:ignore_html('&gt;')
+  return '\%(' . short . '\|' . long . '\)'
+endfunction
+
+function! publish#rsync_check(target) " {{{1
+  let matches = matchlist(a:target, '^sftp://\([^/]\+\)\(.*\)$')
+  if len(matches) >= 3
+    let host = matches[1]
+    let path = substitute(matches[2], '^/', '', '')
+    call system('rsync --version')
+    if !v:shell_error
+      call system('ssh ' . host . ' rsync --version')
+      if !v:shell_error
+        return host . ':' . path
+      endif
+    endif
+  endif
+  return ''
+endfunction
+
+function! publish#run_rsync(target, tempdir) " {{{1
+  let target = fnameescape(a:target . '/')
+  let tempdir = fnameescape(a:tempdir . '/')
+  call xolox#message("Publishing files to %s using rsync..", a:target)
+  execute '!rsync -vr' tempdir target
+  if v:shell_error
+    throw "publish.vim: Failed to run rsync!"
+  endif
 endfunction
 
 function! publish#create_dirs(target_path) " {{{1
@@ -113,11 +163,11 @@ function! publish#create_dirs(target_path) " {{{1
         let msg = "Failed to create directory %s! What now?"
         if confirm(printf(msg, string(current_directory)), "&Abort\n&Ignore") == 1
           let msg = "publish.vim: Failed to create %s, aborting .."
-          echomsg printf(msg, string(current_directory))
+          call xolox#warning(msg, string(current_directory))
           return 0
         else
           let msg = "publish.vim: Failed to create %s, ignoring .."
-          echomsg printf(msg, string(current_directory))
+          call xolox#warning(msg, string(current_directory))
           continue
         endif
       endif
@@ -140,9 +190,9 @@ function! publish#prep_env(enable) " {{{1
 
   " Avoid triggering automatic commands intended to update `Last changed'
   " headers and such by executing :write commands, because the source files
-  " aren't actually modified but only copied. I can't use the :noautocmd
-  " command fir this because that would disable remote publishing through
-  " the netrw plug-in! Therefor I've resorted to the following:
+  " aren't actually modified but only copied. I can't use :noautocmd :write
+  " for this because that would disable remote publishing through the netrw
+  " plug-in! Therefor I've resorted to the following:
   if a:enable
     let s:ei_save = &eventignore
     set eventignore=BufWritePre

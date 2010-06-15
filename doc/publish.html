@@ -24,28 +24,28 @@
 be used to convert a syntax highlighted buffer in Vim to an HTML document that,
 when viewed in a web browser, should look exactly the same. After using that
 script for a while and discovering the excellent <a href="http://ctags.sourceforge.net/">Exuberant Ctags</a> I
-wondered <em>"Wouldn't it be nice to have those tags converted to hyperlinks when
-I publish source code as HTML?"</em>.</p>
+wondered <em>&#8220;Wouldn&#8217;t it be nice to have those tags converted to hyperlinks when
+I publish source code as HTML?&#8221;</em>.</p>
 
 <p>After several attempts I managed a working prototype, but it was quite rough
-around the edges and I didn't really have the time or interest to clean it up.
+around the edges and I didn&#8217;t really have the time or interest to clean it up.
 Several months later I found myself with some free time and a renewed interest
-in Vim scripting so I decided to clean up my code and release it. If you're
-wondering what the result looks like, I've published <a href="http://peterodding.com/code/vim/profile/plugin/publish.vim">the plug-in source code</a> as a demonstration.</p>
+in Vim scripting so I decided to clean up my code and release it. If you&#8217;re
+wondering what the result looks like, I&#8217;ve published <a href="http://peterodding.com/code/vim/profile/plugin/publish.vim">the plug-in source code</a> as a demonstration.</p>
 
 <h2>Installation &amp; usage</h2>
 
-<p>Unzip the most recent <a href="http://github.com/downloads/xolox/vim-publish/publish-latest.zip">ZIP archive</a> file inside your Vim profile
+<p>Unzip the most recent <a href="http://peterodding.com/code/vim/download.php?script=publish">ZIP archive</a> file inside your Vim profile
 directory (usually this is <code>~/.vim</code> on UNIX and <code>%USERPROFILE%\vimfiles</code> on
-Windows). As an example we'll publish the plug-in using itself. First create a
+Windows). As an example we&#8217;ll publish the plug-in using itself. First create a
 tags file that contains entries for the files you want to publish using a shell
 command such as:</p>
 
 <pre><code>ctags -Rf ~/.publish_tags ~/.vim/
 </code></pre>
 
-<p>If this doesn't work because <code>ctags</code> isn't installed you can download it from
-the <a href="http://ctags.sourceforge.net/">Exuberant Ctags homepage</a>, or if you're running Debian/Ubuntu you
+<p>If this doesn&#8217;t work because <code>ctags</code> isn&#8217;t installed you can download it from
+the <a href="http://ctags.sourceforge.net/">Exuberant Ctags homepage</a>, or if you&#8217;re running Debian/Ubuntu you
 can install it by executing the following shell command:</p>
 
 <pre><code>sudo apt-get install exuberant-ctags
@@ -72,16 +72,36 @@ script as <code>~/publish_test.vim</code> and execute it in Vim by typing <code>
 busy for a moment and after that you will find a bunch of syntax highlighted,
 interlinked HTML documents in the <code>target</code> directory!</p>
 
+<h2>Publishing to a remote location (website)</h2>
+
+<p>As you can see from the example above it&#8217;s possible to publish files directly
+to your web server using the <a href="http://www.vim.org/scripts/script.php?script_id=1075">netrw.vim plug-in</a> that&#8217;s bundled with
+Vim, simply by starting the <code>target</code> path with <code>sftp://</code>. All you need for this
+to work is the ability to establish <a href="http://en.wikipedia.org/wiki/Secure_copy">SCP</a> connections to your server.
+There are however two disadvantages to remote publishing over <a href="http://en.wikipedia.org/wiki/SSH_file_transfer_protocol">SFTP</a>:</p>
+
+<ol>
+<li><p>The <code>publish.vim</code> plug-in can&#8217;t automatically create directories on the
+remote side, which means you&#8217;ll have to do so by hand &#8212; very bothersome.</p></li>
+<li><p>It can take a while to publish a dozen files because a new connection is
+established for every file that&#8217;s uploaded to the remote location.</p></li>
+</ol>
+
+<p>As a workaround to both of these issues the <code>publish.vim</code> plug-in will
+automatically use <a href="http://en.wikipedia.org/wiki/rsync">rsync</a> when both the local and remote system have it
+installed. This cuts the time to publish to a remote location in half and
+enables the plug-in to automatically create directories on the remote side.</p>
+
 <h2>Contact</h2>
 
 <p>If you have questions, bug reports, suggestions, etc. the author can be
-contacted at <a href="&#x6D;a&#x69;&#108;&#x74;&#111;:&#x70;&#101;&#116;&#101;&#x72;&#64;&#112;&#101;&#116;&#101;&#114;&#111;&#x64;&#x64;&#x69;&#x6E;&#103;&#46;&#99;&#111;m">&#x70;&#101;&#116;&#101;&#x72;&#64;&#112;&#101;&#116;&#101;&#114;&#111;&#x64;&#x64;&#x69;&#x6E;&#103;&#46;&#99;&#111;m</a>. The latest version is available
+contacted at <a href="&#x6D;&#x61;&#x69;&#108;&#116;&#x6F;:&#112;&#x65;&#x74;&#x65;&#x72;&#64;p&#x65;&#116;&#101;&#114;&#x6F;&#x64;&#100;&#x69;&#110;&#x67;&#46;&#x63;&#x6F;&#x6D;">&#112;&#x65;&#x74;&#x65;&#x72;&#64;p&#x65;&#116;&#101;&#114;&#x6F;&#x64;&#100;&#x69;&#110;&#x67;&#46;&#x63;&#x6F;&#x6D;</a>. The latest version is available
 at <a href="http://peterodding.com/code/vim/publish">http://peterodding.com/code/vim/publish</a> and <a href="http://github.com/xolox/vim-publish">http://github.com/xolox/vim-publish</a>.
 If you like the script please vote for it on <a href="http://www.vim.org/scripts/script.php?script_id=2252">www.vim.org</a>.</p>
 
 <h2>License</h2>
 
 <p>This software is licensed under the <a href="http://en.wikipedia.org/wiki/MIT_License">MIT license</a>.<br>
-© 2010 Peter Odding &lt;<a href="&#x6D;&#x61;i&#x6C;&#x74;&#111;:&#112;&#x65;&#x74;&#x65;&#x72;&#64;&#112;&#101;t&#x65;&#114;&#111;&#x64;&#x64;&#x69;n&#x67;&#46;c&#x6F;&#109;">&#112;&#x65;&#x74;&#x65;&#x72;&#64;&#112;&#101;t&#x65;&#114;&#111;&#x64;&#x64;&#x69;n&#x67;&#46;c&#x6F;&#109;</a>&gt;.</p>
+© 2010 Peter Odding &lt;<a href="&#109;&#x61;&#x69;&#x6C;&#x74;o:&#x70;&#x65;&#116;&#101;&#114;&#64;&#112;&#101;&#116;&#x65;&#114;&#x6F;&#100;&#100;&#x69;&#110;&#x67;&#46;&#99;&#111;&#109;">&#x70;&#x65;&#116;&#101;&#114;&#64;&#112;&#101;&#116;&#x65;&#114;&#x6F;&#100;&#100;&#x69;&#110;&#x67;&#46;&#99;&#111;&#109;</a>&gt;.</p>
  </body>
 </html>
