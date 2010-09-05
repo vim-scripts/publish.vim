@@ -1,7 +1,7 @@
 " Vim script
-" Maintainer: Peter Odding <peter@peterodding.com>
-" Last Change: June 15, 2010
-" URL: http://peterodding.com/code/vim/publish
+" Author: Peter Odding <peter@peterodding.com>
+" Last Change: September 6, 2010
+" URL: http://peterodding.com/code/vim/publish/
 
 function! publish#resolve_files(directory, pathnames) " {{{1
   " Create a dictionary that maps the fully resolved pathnames of the files to
@@ -16,10 +16,19 @@ function! publish#resolve_files(directory, pathnames) " {{{1
   return resolved_files
 endfunction
 
+function! publish#update_tags(pathnames) " {{{1
+  " Integration with easytags.vim to automatically create/update tags for all
+  " files before they're published, see http://peterodding.com/code/vim/easytags/
+  if exists('g:loaded_easytags')
+    call easytags#update(1, 0, a:pathnames)
+  endif
+endfunction
+
 function! publish#find_tags(files_to_publish) " {{{1
   " Given a dictionary like the one created above, this function will filter
   " the results of taglist() to remove irrelevant entries. In the process tag
   " search ex-commands are converted into line numbers.
+  let start = xolox#timer#start()
   let num_duplicates = 0
   let tags_to_publish = {}
   let s:cached_contents = {}
@@ -50,6 +59,9 @@ function! publish#find_tags(files_to_publish) " {{{1
     call xolox#warning(msg, more, more == 1 ? '' : 's')
   endif
   unlet s:cached_contents
+  let msg = "publish.vim: Found %i tag%s to publish in %s."
+  let numtags = len(tags_to_publish)
+  call xolox#timer#stop(msg, numtags, numtags != 1 ? 's' : '', start)
   return tags_to_publish
 endfunction
 
@@ -66,10 +78,12 @@ function! s:pattern_to_lnum(entry, pathname) " {{{2
       let contents = readfile(a:pathname)
       let s:cached_contents[a:pathname] = contents
     else
-     let contents = s:cached_contents[a:pathname]
+      let contents = s:cached_contents[a:pathname]
     endif
-    let pattern = substitute(a:entry.cmd, '^/\(.*\)/$', '\1', '')
-    let pattern = substitute(pattern, '\~', '\\~', 'g')
+    " Convert tag search command to plain Vim pattern, based on :help tag-search.
+    let pattern = a:entry.cmd
+    let pattern = matchstr(pattern, '^/^\zs.*\ze$/$')
+    let pattern = '^' . xolox#escape#pattern(pattern) . '$'
     try
       let index = match(contents, pattern)
     catch
@@ -86,46 +100,41 @@ function! publish#create_subst_cmd(tags_to_publish) " {{{1
   " Generate a :substitute command that, when executed, replaces tags with
   " hyperlinks using a callback. This is complicated somewhat by the fact that
   " tag names won't always appear literally in the output of 2html.vim, for
-  " example the names of Vim autoload functions appear as:
+  " example the names of Vim autoload functions can appear as:
   " 
   "   foo#bar#<span class=Normal>baz</span>
   " 
   let patterns = []
+  let slfunctions = []
   for name in keys(a:tags_to_publish)
-    let tokens = []
-    for token in split(name, '\W\@=\|\W\@<=')
-      let escaped = xolox#escape#pattern(token)
-      call add(tokens, s:ignore_html(token))
-    endfor
     let entry = a:tags_to_publish[name]
-    if g:publish_viml_sl_hack && get(entry, 'language') == 'Vim'
-      let subpattern = '\s\(s:\|<[Ss][Ii][Dd]>\)' . name . '\s*('
-      if get(entry, 'cmd') =~ subpattern
-        if !exists('s:viml_sl_prefix')
-          let s:viml_sl_prefix = s:nasty()
-        endif
-        call insert(tokens, s:viml_sl_prefix)
+    if get(entry, 'language') == 'Vim'
+      let is_slfunc = '\s\(s:\|<[Ss][Ii][Dd]>\)' . xolox#escape#pattern(name) . '\s*('
+      if get(entry, 'cmd') =~ is_slfunc
+        call add(slfunctions, xolox#escape#pattern(name))
+        continue
       endif
     endif
-    call add(patterns, join(tokens, ''))
+    call add(patterns, xolox#escape#pattern(name))
   endfor
+  call insert(patterns, '\%(\%(&lt;[Ss][Ii][Dd]&gt;\|s:\)\%(' . join(slfunctions, '\|') . '\)\)')
   let tag_names_pattern = escape(join(patterns, '\|'), '/')
   " Gotcha: Use \w\@<! and \w\@! here instead of \< and \> which won't work.
   return '%s/[A-Za-z0-9_]\@<!\%(' . tag_names_pattern . '\)[A-Za-z0-9_]\@!/\=s:ConvertTagToLink(submatch(0))/eg'
 endfunction
 
-function! s:ignore_html(s)
-  return printf('\%%(<[^/][^>]*>%s</[^>]\+>\|%s\)', a:s, a:s)
-endfunction
-
-function! s:nasty()
-  " return '\%(s:\|&lt;[Ss][Ii][Dd]&gt;\)'
-  let short = s:ignore_html('s') . s:ignore_html(':')
-  let long = s:ignore_html('&lt;') . s:ignore_html('[Ss][Ii][Dd]') . s:ignore_html('&gt;')
-  return '\%(' . short . '\|' . long . '\)'
+function! publish#munge_syntax_items() " {{{1
+  " Tag to hyperlink conversion only works when tag names appear literally in
+  " the output of 2html.vim while this isn't always the case in Vim scripts.
+  if &filetype == 'vim'
+    syntax match vimFuncName /\<s:\w\+\>/ containedin=vim.*
+    syntax match vimFuncName /\c<Sid>\w\+\>/ containedin=vim.*
+  endif
 endfunction
 
 function! publish#rsync_check(target) " {{{1
+  let start = xolox#timer#start()
+  let result = ''
   let matches = matchlist(a:target, '^sftp://\([^/]\+\)\(.*\)$')
   if len(matches) >= 3
     let host = matches[1]
@@ -134,18 +143,21 @@ function! publish#rsync_check(target) " {{{1
     if !v:shell_error
       call system('ssh ' . host . ' rsync --version')
       if !v:shell_error
-        return host . ':' . path
+        let result = host . ':' . path
       endif
     endif
   endif
-  return ''
+  call xolox#timer#stop("publish.vim: Checked rsync support in %s.", start)
+  return result
 endfunction
 
 function! publish#run_rsync(target, tempdir) " {{{1
+  let start = xolox#timer#start()
   let target = fnameescape(a:target . '/')
   let tempdir = fnameescape(a:tempdir . '/')
-  call xolox#message("Publishing files to %s using rsync..", a:target)
+  call xolox#message("publish.vim: Uploading files to %s using rsync.", a:target)
   execute '!rsync -vr' tempdir target
+  call xolox#timer#stop("publish.vim: Finished uploading in %s.", start)
   if v:shell_error
     throw "publish.vim: Failed to run rsync!"
   endif
@@ -188,6 +200,14 @@ function! publish#prep_env(enable) " {{{1
     endif
   augroup END
 
+  " Avoid the hit-enter prompt!
+  if a:enable
+    let s:more_save = &more
+    set nomore
+  else
+    let &more = s:more_save
+  endif
+
   " Avoid triggering automatic commands intended to update `Last changed'
   " headers and such by executing :write commands, because the source files
   " aren't actually modified but only copied. I can't use :noautocmd :write
@@ -213,12 +233,17 @@ function! publish#prep_env(enable) " {{{1
   " anchors which are used as the targets of hyperlinks created from tags.
   " Also instruct the 2html script to use CSS which we will modify to improve
   " the appearance of hyperlinks (so they inherit the highlighting color).
+  " Finally ignore any text folding until I find out how to get the dynamic
+  " JavaScript text folding to work.
   if a:enable
+    let s:hif_save = exists('g:html_ignore_folding') ? g:html_ignore_folding : 0
     let s:hnl_save = exists('g:html_number_lines') ? g:html_number_lines : 0
     let s:huc_save = exists('g:html_use_css') ? g:html_use_css : 0
+    let g:html_ignore_folding = 1
     let g:html_number_lines =  1
     let g:html_use_css = 1
   else
+    let g:html_ignore_folding = s:hif_save
     let g:html_number_lines =  s:hnl_save
     let g:html_use_css =  s:huc_save
   endif
@@ -228,7 +253,7 @@ endfunction
 function! publish#customize_html(page_title) " {{{1
 
   " Change document title to relative pathname.
-  silent keepjumps %s@<title>\zs.*\ze</title>@\=a:page_title@
+  silent keepjumps %s@<title>\zs.*\ze</title>@\=publish#html_encode(a:page_title)@e
 
   " Insert CSS to remove the default colors and underline from hyper links
   " and to remove any padding between the browser chrome and page content.
@@ -237,11 +262,18 @@ function! publish#customize_html(page_title) " {{{1
   let custom_css .= "\npre:hover a:link, pre:hover a:visited { text-decoration: underline; }"
   let custom_css .= "\na:link span, a:visited span { text-decoration: inherit; }"
   let custom_css .= "\n.lnr a:link, .lnr a:visited { text-decoration: none !important; }"
-  silent keepjumps %s@\ze\_s\+-->\_s\+</style>@\= "\n" . custom_css@
+  silent keepjumps %s@\ze\_s\+-->\_s\+</style>@\= "\n" . custom_css@e
 
   " Add link anchors to line numbering.
-  silent keepjumps %s@<span class="lnr">\zs\s*\(\d\+\)\s*\ze</span>@<a name="l\1" href="#l\1">\0</a>@g
+  silent keepjumps %s@<span class="lnr">\zs\s*\(\d\+\)\s*\ze</span>@<a name="l\1" href="#l\1">\0</a>@eg
 
+endfunction
+
+function! publish#html_encode(s) " {{{1
+  let s = substitute(a:s, '&', '\&amp;', 'g')
+  let s = substitute(s, '<', '\&lt;', 'g')
+  let s = substitute(s, '>', '\&gt;', 'g')
+  return s
 endfunction
 
 " vim: ts=2 sw=2 et

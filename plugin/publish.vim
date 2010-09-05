@@ -1,9 +1,9 @@
 " Vim plug-in
-" Maintainer: Peter Odding <peter@peterodding.com>
-" Last Change: June 16, 2010
-" URL: http://peterodding.com/code/vim/publish
+" Author: Peter Odding <peter@peterodding.com>
+" Last Change: September 6, 2010
+" URL: http://peterodding.com/code/vim/publish/
 " License: MIT
-" Version: 1.6
+" Version: 1.7.1
 
 " Support for automatic update using the GLVS plug-in.
 " GetLatestVimScripts: 2252 1 :AutoInstall: publish.zip
@@ -21,14 +21,11 @@ if !exists('g:publish_plaintext')
   let g:publish_plaintext = 0
 endif
 
-if !exists('g:publish_viml_sl_hack')
-  let g:publish_viml_sl_hack = 1
-endif
-
 function! Publish(source, target, files) abort
   let start = xolox#timer#start()
   call xolox#message("Preparing to publish file%s ..", len(a:files) == 1 ? '' : 's')
   let s:files_to_publish = publish#resolve_files(a:source, a:files)
+  call publish#update_tags(values(s:files_to_publish))
   let s:tags_to_publish = publish#find_tags(s:files_to_publish)
   if s:tags_to_publish != {}
     let tags_to_links_command = publish#create_subst_cmd(s:tags_to_publish)
@@ -56,16 +53,25 @@ function! Publish(source, target, files) abort
       let plaintext_path = xolox#path#merge(target_dir, pathname . '.txt')
       silent execute 'write!' fnameescape(plaintext_path)
     endif
-    silent execute 'doautocmd User PublishPre'
+    " Highlight tags in current buffer using easytags.vim?
+    if exists('g:loaded_easytags')
+      HighlightTags
+    endif
+    let highlight_start = xolox#timer#start()
+    call publish#munge_syntax_items()
     runtime syntax/2html.vim
+    let msg = "publish.vim: The 2html.vim script took %s to highlight %s."
+    call xolox#timer#stop(msg, highlight_start, pathname)
     if exists('tags_to_links_command')
+      let tags_to_links_start = xolox#timer#start()
       silent execute tags_to_links_command
+      let msg = "publish.vim: Finished converting tags in %s to links in %s."
+      call xolox#timer#stop(msg, pathname, tags_to_links_start)
     endif
     call publish#customize_html(pathname)
     silent execute 'write!' fnameescape(target_path)
     bwipeout!
   endfor
-  call publish#prep_env(0)
   unlet s:files_to_publish s:tags_to_publish
   if rsync_target != ''
     call publish#run_rsync(rsync_target, rsync_dir)
@@ -73,6 +79,7 @@ function! Publish(source, target, files) abort
   let msg = "publish.vim: Published %i file%s to %s."
   call xolox#message(msg, len(a:files), len(a:files) == 1 ? '' : 's', a:target)
   call xolox#timer#stop("Finished publishing files in %s.", start)
+  call publish#prep_env(0)
 endfunction
 
 function! s:FindOriginalPath(pathname) " {{{1
@@ -99,7 +106,8 @@ function! s:ConvertTagToLink(name) " {{{1
     " TODO This is likely to be slow so cache the results?!
     let relative = xolox#path#relative(pathname, s:current_source_directory)
     let suffix = g:publish_omit_dothtml ? '' : '.html'
-    return '<a href="' . relative . suffix . '#l' . entry.lnum . '">' . a:name . '</a>'
+    let href = publish#html_encode(relative . suffix . '#l' . entry.lnum)
+    return '<a href="' . href . '">' . a:name . '</a>'
   catch
     return a:name
   endtry
